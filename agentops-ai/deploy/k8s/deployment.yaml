@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentops-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: agentops-api}
+  template:
+    metadata:
+      labels: {app: agentops-api}
+    spec:
+      containers:
+        - name: api
+          image: example.invalid/agentops-ai:0.1.0
+          ports: [{containerPort: 8000}]
+          env:
+            - name: DATABASE_URL
+              valueFrom: {secretKeyRef: {name: agentops-secrets, key: database-url}}
+            - name: OPENAI_API_KEY
+              valueFrom: {secretKeyRef: {name: agentops-secrets, key: openai-api-key, optional: true}}
+            - name: ENABLE_OTEL
+              value: "true"
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 1000m, memory: 768Mi}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentops-api
+spec:
+  selector: {app: agentops-api}
+  ports: [{port: 80, targetPort: 8000}]
